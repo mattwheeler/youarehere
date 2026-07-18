@@ -51,32 +51,6 @@ CREATE INDEX IF NOT EXISTS mission_actions_session_status_idx
 
 CREATE INDEX IF NOT EXISTS mission_actions_expires_at_idx
   ON mission_actions (expires_at);
---> statement-breakpoint
 
-CREATE TRIGGER IF NOT EXISTS mission_actions_require_current_session
-BEFORE INSERT ON mission_actions
-BEGIN
-  SELECT CASE WHEN NOT EXISTS (
-    SELECT 1
-    FROM mission_sessions
-    WHERE id = NEW.session_id
-      AND version = NEW.session_version - 1
-      AND pending_action_id IS NULL
-      AND expires_at > NEW.created_at
-  ) THEN RAISE(ABORT, 'mission_session_conflict') END;
-END;
---> statement-breakpoint
-
-CREATE TRIGGER IF NOT EXISTS mission_actions_require_current_execution
-BEFORE UPDATE OF status ON mission_actions
-WHEN NEW.status = 'executed' AND OLD.status <> 'executed'
-BEGIN
-  SELECT CASE WHEN NOT EXISTS (
-    SELECT 1
-    FROM mission_sessions
-    WHERE id = NEW.session_id
-      AND version = NEW.session_version
-      AND pending_action_id = NEW.id
-      AND expires_at > NEW.executed_at
-  ) THEN RAISE(ABORT, 'mission_execution_conflict') END;
-END;
+-- The runtime installs the two mission safety triggers from db/schema.ts,
+-- one complete prepared statement at a time, before handling mission data.

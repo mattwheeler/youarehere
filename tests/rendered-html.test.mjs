@@ -72,19 +72,25 @@ test("keeps the starter preview removed from the product shell", async () => {
 });
 
 test("packages the mission database migration for Sites", async () => {
-  const migration = await readFile(
-    new URL(
-      "../dist/.openai/drizzle/0001_mission_runtime.sql",
-      import.meta.url,
+  const [migration, runtimeSchema] = await Promise.all([
+    readFile(
+      new URL(
+        "../dist/.openai/drizzle/0001_mission_runtime.sql",
+        import.meta.url,
+      ),
+      "utf8",
     ),
-    "utf8",
-  );
+    readFile(new URL("../db/schema.ts", import.meta.url), "utf8"),
+  ]);
 
   assert.match(migration, /CREATE TABLE IF NOT EXISTS mission_sessions/);
   assert.match(migration, /CREATE TABLE IF NOT EXISTS mission_actions/);
   assert.equal(
     migration.match(/--> statement-breakpoint/g)?.length,
-    7,
+    5,
     "Drizzle must receive one complete SQLite statement at a time",
   );
+  assert.doesNotMatch(migration, /CREATE TRIGGER/);
+  assert.match(runtimeSchema, /mission_actions_require_current_session/);
+  assert.match(runtimeSchema, /mission_actions_require_current_execution/);
 });
