@@ -1,5 +1,5 @@
-import { JourneyExperience } from "@/components/JourneyExperience";
+import { MissionExperience } from "@/components/MissionExperience";
 
 export default function Home() {
-  return <JourneyExperience />;
+  return <MissionExperience />;
 }

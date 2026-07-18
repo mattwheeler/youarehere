@@ -2,26 +2,17 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "You Are Here — See the question work",
+  title: "On Your Behalf — Driver's ed for AI agents",
   description:
-    "A map-first AI workspace that makes goals, context, actions, and learning visible while you complete real work.",
+    "A safe, playable simulation where people learn to scope, inspect, approve, and verify an AI agent's actions.",
   openGraph: {
-    title: "You Are Here",
-    description: "See what AI can see. Learn what to do next.",
-    images: [
-      {
-        url: "/og.png",
-        width: 1200,
-        height: 630,
-        alt: "An illustrated journey map connecting a goal, context, action, and artifact.",
-      },
-    ],
+    title: "On Your Behalf",
+    description: "Before an AI acts for you, learn how to stay in charge.",
   },
   twitter: {
-    card: "summary_large_image",
-    title: "You Are Here",
-    description: "See what AI can see. Learn what to do next.",
-    images: ["/og.png"],
+    card: "summary",
+    title: "On Your Behalf",
+    description: "Driver's ed for AI agents.",
   },
   icons: {
     icon: "/favicon.svg",

@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { createDemoJourney, journeyContentSchema } from "./journey";
+import { coachContentSchema, createDemoCoach } from "./mission";
 
 const parseMock = vi.hoisted(() => vi.fn());
 const formatMock = vi.hoisted(() => vi.fn(() => ({ type: "mock-format" })));
@@ -10,34 +10,23 @@ vi.mock("openai", () => ({
   },
 }));
 
-vi.mock("openai/helpers/zod", () => ({
-  zodTextFormat: formatMock,
-}));
+vi.mock("openai/helpers/zod", () => ({ zodTextFormat: formatMock }));
 
-import { generateLiveJourney } from "./openai-journey";
+import { generateLiveCoach } from "./openai-coach";
 
-const request = {
-  stage: "goal" as const,
-  goal: "Write my performance review",
-  notes: "",
-  refinement: "",
-};
+const request = { stage: "scope" as const, decision: "sender-only" as const };
 
-describe("generateLiveJourney", () => {
+describe("generateLiveCoach", () => {
   beforeEach(() => {
     parseMock.mockReset();
     formatMock.mockClear();
   });
 
   it("uses GPT-5.6 structured outputs without storing the response", async () => {
-    const fixture = createDemoJourney(request);
-    const content = journeyContentSchema.parse(fixture);
-    parseMock.mockResolvedValue({
-      id: "resp_test",
-      output_parsed: content,
-    });
+    const content = coachContentSchema.parse(createDemoCoach(request));
+    parseMock.mockResolvedValue({ id: "resp_test", output_parsed: content });
 
-    const result = await generateLiveJourney(request, "test-key");
+    const result = await generateLiveCoach(request, "test-key");
 
     expect(parseMock).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -54,11 +43,11 @@ describe("generateLiveJourney", () => {
     });
   });
 
-  it("fails honestly when no parsed task map is returned", async () => {
+  it("fails honestly when no coaching response is returned", async () => {
     parseMock.mockResolvedValue({ id: "resp_empty", output_parsed: null });
 
-    await expect(generateLiveJourney(request, "test-key")).rejects.toThrow(
-      "GPT-5.6 did not return a task map.",
+    await expect(generateLiveCoach(request, "test-key")).rejects.toThrow(
+      "GPT-5.6 did not return a coaching response.",
     );
   });
 });

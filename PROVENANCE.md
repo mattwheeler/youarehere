@@ -6,28 +6,28 @@ Matt Wheeler, entering as an individual. This must remain consistent across Devp
 
 ## Submission-period creation
 
-You Are Here is a new project and repository created during the OpenAI Build Week 2026 submission period. All application code, prompts, schemas, fixtures, product copy, visual assets, tests, and submission materials in this repository were created from scratch during that period.
+This is a new project and repository created during the OpenAI Build Week 2026 submission period. All application code, prompts, schemas, fixtures, product copy, visual assets, tests, and submission materials were created during that period.
 
 No application code, prompts, schemas, fixtures, copy, or visual assets were copied from an existing Rise Up Labs or Matt Wheeler repository.
 
 ## Concept lineage
 
-The project thesis comes from a new user interview conducted for Build Week: people can use AI to get an answer but struggle to see where they are, what context the AI used, and what to do next. Existing products and editorials informed the builder's general experience, not this implementation.
+Private user interviews conducted for Build Week established the thesis that AI should teach people how to use AI while they are using it. The first implementation, **You Are Here**, interpreted that thesis as a map-first performance-review workspace. It was implemented, reviewed with the product owner, and rejected on July 17, 2026 because it taught through abstract explanation rather than consequential practice.
 
-Earlier concepts explored during this Build Week—including Promise Compiler—were rejected before implementation. Their local notes are not part of this repository.
+The repository then pivoted within the submission period to **On Your Behalf**, a consumer-facing practice environment for supervising an action-taking AI agent. The rejected implementation remains visible in Git history as evidence of the Codex collaboration and product iteration; it is not represented as part of the final product.
 
-## Demo data
+## Simulation data
 
-The performance-review scenario is a transparent, deterministic fixture written specifically for this project. It contains no client data, unpublished company information, credentials, or personal information. The UI labels fixture output as a demo and the server only enables it when `USE_DEMO_FIXTURES=true`.
+Streamly, its inbox messages, domains, account, subscription, prices, dates, and confirmation reference are fictional Build Week fixtures. The product connects to no real inbox, browser account, billing system, or personal data. The UI labels the environment as synthetic and labels deterministic coaching as a scenario fixture.
 
 ## OpenAI usage
 
-Live mode uses the OpenAI Responses API with GPT-5.6, Structured Outputs, low reasoning effort, and `store: false`. The application exposes useful product-level provenance (model, response ID, and live/fixture status) without requesting or displaying hidden chain-of-thought.
+Live mode uses the OpenAI Responses API with GPT-5.6, Structured Outputs, low reasoning effort, and `store: false`. The model provides concise coaching and a typed proposed action. Deterministic application code retains control over permissions, mission state, approvals, and verification. The application exposes model/fixture provenance without requesting or displaying hidden chain-of-thought.
 
 ## Third-party work
 
-Runtime and development dependencies are enumerated in `package-lock.json`. The interface uses CSS-drawn wayfinding forms and system fonts; no third-party media or brand assets are included.
+Runtime and development dependencies are enumerated in `package-lock.json`. The interface uses CSS-drawn application surfaces and system fonts; no third-party trademarks, media, copyrighted music, or brand assets are included.
 
 ## Build evidence
 
-The repository history, automated tests, and the primary Codex task document implementation during the submission period. Any future third-party data, code, media, fonts, or assets must be recorded here before submission.
+The repository history, automated tests, Confluence build record, and primary Codex task document implementation during the submission period. Any future third-party data, code, media, fonts, or assets must be recorded here before submission.

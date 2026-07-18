@@ -23,7 +23,7 @@ async function render() {
   );
 }
 
-test("server-renders the You Are Here orientation experience", async () => {
+test("server-renders the On Your Behalf mission briefing", async () => {
   const response = await render();
   assert.equal(response.status, 200);
   assert.match(response.headers.get("content-type") ?? "", /^text\/html\b/i);
@@ -35,15 +35,12 @@ test("server-renders the You Are Here orientation experience", async () => {
   assert.equal(response.headers.get("x-frame-options"), "DENY");
 
   const html = await response.text();
-  assert.match(html, /<title>You Are Here — See the question work<\/title>/i);
-  assert.match(html, /You Are Here/);
-  assert.match(html, /What are you trying to get done today\?/);
-  assert.match(html, /Write/);
-  assert.match(html, /Understand/);
-  assert.match(html, /Find/);
-  assert.match(html, /Compare/);
-  assert.match(html, /Decide/);
-  assert.match(html, /Create/);
+  assert.match(html, /<title>On Your Behalf — Driver&#x27;s ed for AI agents<\/title>/i);
+  assert.match(html, /On Your Behalf/);
+  assert.match(html, /Before an AI acts on your behalf/);
+  assert.match(html, /Begin simulation/);
+  assert.match(html, /streaming trial renews tomorrow/i);
+  assert.doesNotMatch(html, /Capability map|What are you trying to get done today/);
   assert.doesNotMatch(html, /Your site is taking shape|Building your site/);
 });
 
@@ -54,8 +51,8 @@ test("keeps the starter preview removed from the product shell", async () => {
     readFile(new URL("../package.json", import.meta.url), "utf8"),
   ]);
 
-  assert.match(page, /<JourneyExperience \/>/);
-  assert.match(layout, /You Are Here/);
+  assert.match(page, /<MissionExperience \/>/);
+  assert.match(layout, /On Your Behalf/);
   assert.doesNotMatch(layout, /next\/font\/google|Starter Project/);
   assert.doesNotMatch(packageJson, /react-loading-skeleton/);
   await Promise.all([
