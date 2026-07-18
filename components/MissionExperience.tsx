@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import {
   advanceMission,
   createMissionState,
@@ -11,6 +11,8 @@ import {
   type MissionState,
 } from "@/lib/mission";
 import { postCoach, type CoachClient } from "@/lib/mission-client";
+import { getMissionRuntimeStatus } from "@/lib/mission-runtime-client";
+import { LiveCancellationMission } from "./LiveCancellationMission";
 import {
   categoryLabels,
   getScenario,
@@ -159,12 +161,12 @@ function Brand({ compact = false }: { compact?: boolean }) {
   );
 }
 
-function MissionCard({ scenario, onStart }: { scenario: Scenario; onStart: (id: ScenarioId) => void }) {
+function MissionCard({ scenario, onStart, live }: { scenario: Scenario; onStart: (id: ScenarioId) => void; live: boolean }) {
   return (
     <article className={`scenario-card category-${scenario.category} ${scenario.featured ? "scenario-featured" : ""}`}>
       <div className="scenario-card-top">
         <span className="scenario-glyph" aria-hidden="true">{scenario.glyph}</span>
-        <span className="scenario-time">{scenario.minutes} min</span>
+        <span className={`scenario-mode ${live ? "mode-live" : ""}`}><i />{live ? "Live GPT-5.6" : "Practice"}</span>
       </div>
       <div className="scenario-card-copy">
         <span className="scenario-category">{categoryLabels[scenario.category]}</span>
@@ -184,7 +186,7 @@ function MissionCard({ scenario, onStart }: { scenario: Scenario; onStart: (id: 
   );
 }
 
-function MissionLibrary({ onStart }: { onStart: (id: ScenarioId) => void }) {
+function MissionLibrary({ onStart, liveCancellation }: { onStart: (id: ScenarioId) => void; liveCancellation: boolean }) {
   const [category, setCategory] = useState<ScenarioCategory | "all">("all");
   const visible = useMemo(
     () => category === "all" ? scenarioCatalog : scenarioCatalog.filter((item) => item.category === category),
@@ -196,7 +198,7 @@ function MissionLibrary({ onStart }: { onStart: (id: ScenarioId) => void }) {
       <header className="library-nav">
         <Brand />
         <div className="library-nav-right">
-          <span className="mission-count">20 practice missions</span>
+          <span className="mission-count">20 learn-by-doing missions</span>
           <span className="practice-avatar" aria-hidden="true">MW</span>
         </div>
       </header>
@@ -234,7 +236,7 @@ function MissionLibrary({ onStart }: { onStart: (id: ScenarioId) => void }) {
         </div>
 
         <div className="scenario-grid">
-          {visible.map((item) => <MissionCard key={item.id} scenario={item} onStart={onStart} />)}
+          {visible.map((item) => <MissionCard key={item.id} scenario={item} live={item.id === "cancel-streamly" && liveCancellation} onStart={onStart} />)}
         </div>
       </section>
 
@@ -459,13 +461,43 @@ function MissionChat({ scenario, client, onExit }: { scenario: Scenario; client:
 
 export function MissionExperience({ client = postCoach }: { client?: CoachClient }) {
   const [activeId, setActiveId] = useState<ScenarioId | null>(null);
+  const [liveCancellation, setLiveCancellation] = useState(false);
 
   useEffect(() => {
-    document.documentElement.scrollTop = 0;
-    document.body.scrollTop = 0;
+    let active = true;
+    void getMissionRuntimeStatus()
+      .then((status) => {
+        if (active) setLiveCancellation(status.cancelStreamly === "live");
+      })
+      .catch(() => {
+        if (active) setLiveCancellation(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  useLayoutEffect(() => {
+    const resetScroll = () => {
+      const scrollingElement = document.scrollingElement ?? document.documentElement;
+      const previousBehavior = document.documentElement.style.scrollBehavior;
+      document.documentElement.style.scrollBehavior = "auto";
+      scrollingElement.scrollTop = 0;
+      document.body.scrollTop = 0;
+      window.scrollTo(0, 0);
+      document.documentElement.style.scrollBehavior = previousBehavior;
+    };
+
+    resetScroll();
+    const timeout = window.setTimeout(resetScroll, 0);
+    return () => window.clearTimeout(timeout);
   }, [activeId]);
 
-  if (!activeId) return <MissionLibrary onStart={setActiveId} />;
+  if (!activeId) return <MissionLibrary liveCancellation={liveCancellation} onStart={setActiveId} />;
+
+  if (activeId === "cancel-streamly" && liveCancellation) {
+    return <LiveCancellationMission onExit={() => setActiveId(null)} />;
+  }
 
   return <MissionChat key={activeId} scenario={getScenario(activeId)} client={client} onExit={() => setActiveId(null)} />;
 }

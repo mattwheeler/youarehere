@@ -3,12 +3,19 @@
 import "@testing-library/jest-dom/vitest";
 import { cleanup, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createDemoCoach } from "@/lib/mission";
 import type { CoachClient } from "@/lib/mission-client";
 import { MissionExperience } from "./MissionExperience";
 
-afterEach(cleanup);
+beforeEach(() => {
+  vi.spyOn(window, "scrollTo").mockImplementation(() => undefined);
+});
+
+afterEach(() => {
+  cleanup();
+  vi.restoreAllMocks();
+});
 
 const fixtureClient = vi.fn<CoachClient>(async (request) => createDemoCoach(request));
 
@@ -17,7 +24,7 @@ describe("MissionExperience", () => {
     render(<MissionExperience client={fixtureClient} />);
 
     expect(screen.getByRole("heading", { name: "Learn AI by doing it." })).toBeVisible();
-    expect(screen.getByText("20 practice missions")).toBeVisible();
+    expect(screen.getByText("20 learn-by-doing missions")).toBeVisible();
     expect(screen.getAllByRole("button", { name: /start mission/i })).toHaveLength(20);
     expect(screen.queryByText(/scope|inspect|consequential/i)).not.toBeInTheDocument();
   });
@@ -31,6 +38,17 @@ describe("MissionExperience", () => {
     expect(screen.getAllByRole("button", { name: /start mission/i })).toHaveLength(5);
     expect(screen.getByText("Send a client update")).toBeVisible();
     expect(screen.queryByText("Return a purchase")).not.toBeInTheDocument();
+  });
+
+  it("opens a mission at the top of the page", async () => {
+    const user = userEvent.setup();
+    const scrollTo = vi.mocked(window.scrollTo);
+    render(<MissionExperience client={fixtureClient} />);
+    scrollTo.mockClear();
+
+    await user.click(screen.getByRole("button", { name: "Start mission: Cancel a subscription" }));
+
+    expect(scrollTo).toHaveBeenCalledWith(0, 0);
   });
 
   it("plays the flagship mission as an AI conversation", async () => {

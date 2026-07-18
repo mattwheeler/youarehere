@@ -1,9 +1,15 @@
 /** Cloudflare Worker entry point for the vinext-starter template. */
 import { handleImageOptimization, DEFAULT_DEVICE_SIZES, DEFAULT_IMAGE_SIZES } from "vinext/server/image-optimization";
 import handler from "vinext/server/app-router-entry";
+import { installMissionRuntimeBindings } from "../lib/runtime-bindings";
+import type { D1DatabaseLike } from "../db/mission-session-store";
 
 interface Env {
   ASSETS: Fetcher;
+  DB: D1DatabaseLike;
+  OPENAI_API_KEY?: string;
+  MISSION_STATE_SECRET?: string;
+  LIVE_GOLDEN_MISSIONS?: string;
   IMAGES: {
     input(stream: ReadableStream): {
       transform(options: Record<string, unknown>): {
@@ -48,6 +54,7 @@ function secure(response: Response) {
 
 const worker = {
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
+    installMissionRuntimeBindings(env);
     const url = new URL(request.url);
 
     if (url.pathname === "/_vinext/image") {

@@ -25,11 +25,11 @@ People should not have to finish a course before they can use AI safely. AI shou
 
 ## How it works
 
-- The UI resembles a modern AI conversation, including visible tool calls and human approval moments.
-- All missions use fictional data and make no real external changes.
-- Deterministic application logic controls the lesson state, scores, and safe/unsafe consequences.
-- GPT-5.6 can provide brief, structured coaching through the OpenAI Responses API.
-- Demo mode uses labeled deterministic fixtures so the prototype remains reliable without live credentials.
+- The flagship cancellation mission uses GPT-5.6 and six strict tools inside a fictional Streamly inbox and account.
+- D1 holds the authoritative mission state, while signed browser tokens carry only an opaque session reference.
+- Write arguments are frozen before the learner sees the approval card, then executed at most once after an exact approval.
+- Deterministic application logic—not model text—controls permissions, unsafe-route blocking, world changes, and completion proof.
+- The other 19 missions remain clearly labeled Practice experiences. If the live runtime is unhealthy, cancellation is also labeled Practice before it starts; a started live mission is never silently replaced with a fixture.
 
 ## Local development
 
@@ -37,7 +37,7 @@ Requires Node.js 22.13 or later.
 
 ```bash
 npm ci
-USE_DEMO_FIXTURES=true npm run dev
+npm run dev
 ```
 
 Open `http://localhost:3000`.
@@ -54,15 +54,19 @@ npm run build
 ## Environment
 
 ```bash
-# Reliable public demo mode
+# Live Cancel Streamly mission (disabled by default)
+OPENAI_API_KEY=...
+MISSION_STATE_SECRET=use-a-strong-random-secret-at-least-32-characters
+LIVE_GOLDEN_MISSIONS=true
+
+# Legacy deterministic coach for the remaining Practice missions
 USE_DEMO_FIXTURES=true
 
-# Live GPT-5.6 coaching mode
-OPENAI_API_KEY=...
+# Use the live coach for those Practice missions
 USE_DEMO_FIXTURES=false
 ```
 
-The app uses `store: false` and Structured Outputs for live coaching. Model output never controls mission permissions, approvals, or proof.
+The app uses `store: false`, strict function schemas, encrypted reasoning continuation, bounded tool results, and a four-hop ceiling. The OpenAI key, mission secret, authoritative world state, continuation state, and action hashes stay server-side.
 
 ## Documentation
 
