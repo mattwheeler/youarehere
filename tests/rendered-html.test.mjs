@@ -82,4 +82,9 @@ test("packages the mission database migration for Sites", async () => {
 
   assert.match(migration, /CREATE TABLE IF NOT EXISTS mission_sessions/);
   assert.match(migration, /CREATE TABLE IF NOT EXISTS mission_actions/);
+  assert.equal(
+    migration.match(/--> statement-breakpoint/g)?.length,
+    7,
+    "Drizzle must receive one complete SQLite statement at a time",
+  );
 });

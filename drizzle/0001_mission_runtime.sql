@@ -15,12 +15,15 @@ CREATE TABLE IF NOT EXISTS mission_sessions (
   updated_at INTEGER NOT NULL,
   expires_at INTEGER NOT NULL
 );
+--> statement-breakpoint
 
 CREATE INDEX IF NOT EXISTS mission_sessions_expires_at_idx
   ON mission_sessions (expires_at);
+--> statement-breakpoint
 
 CREATE INDEX IF NOT EXISTS mission_sessions_status_idx
   ON mission_sessions (status, updated_at);
+--> statement-breakpoint
 
 CREATE TABLE IF NOT EXISTS mission_actions (
   id TEXT PRIMARY KEY NOT NULL,
@@ -40,12 +43,15 @@ CREATE TABLE IF NOT EXISTS mission_actions (
   executed_at INTEGER,
   UNIQUE (session_id, call_id)
 );
+--> statement-breakpoint
 
 CREATE INDEX IF NOT EXISTS mission_actions_session_status_idx
   ON mission_actions (session_id, status);
+--> statement-breakpoint
 
 CREATE INDEX IF NOT EXISTS mission_actions_expires_at_idx
   ON mission_actions (expires_at);
+--> statement-breakpoint
 
 CREATE TRIGGER IF NOT EXISTS mission_actions_require_current_session
 BEFORE INSERT ON mission_actions
@@ -59,6 +65,7 @@ BEGIN
       AND expires_at > NEW.created_at
   ) THEN RAISE(ABORT, 'mission_session_conflict') END;
 END;
+--> statement-breakpoint
 
 CREATE TRIGGER IF NOT EXISTS mission_actions_require_current_execution
 BEFORE UPDATE OF status ON mission_actions
