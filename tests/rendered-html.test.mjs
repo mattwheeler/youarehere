@@ -70,3 +70,16 @@ test("keeps the starter preview removed from the product shell", async () => {
     ),
   ]);
 });
+
+test("packages the mission database migration for Sites", async () => {
+  const migration = await readFile(
+    new URL(
+      "../dist/.openai/drizzle/0001_mission_runtime.sql",
+      import.meta.url,
+    ),
+    "utf8",
+  );
+
+  assert.match(migration, /CREATE TABLE IF NOT EXISTS mission_sessions/);
+  assert.match(migration, /CREATE TABLE IF NOT EXISTS mission_actions/);
+});
