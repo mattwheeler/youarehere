@@ -96,6 +96,35 @@ function runner(execute = vi.fn()) {
   return { toolRunner: new MissionToolRunner(definitions), execute };
 }
 
+function approvalStore(overrides: Record<string, unknown> = {}) {
+  return {
+    claimPendingAction: vi.fn(async () => ({
+      kind: "claimed" as const,
+      action: action("approved"),
+    })),
+    getSession: vi.fn(async () => session()),
+    completeApprovedAction: vi.fn(async () => ({ kind: "conflict" as const })),
+    completeRejectedAction: vi.fn(async () => ({ kind: "conflict" as const })),
+    ...overrides,
+  } as unknown as Pick<
+    D1MissionSessionStore,
+    | "claimPendingAction"
+    | "getSession"
+    | "completeApprovedAction"
+    | "completeRejectedAction"
+  >;
+}
+
+function decision(decide: "approve" | "reject" = "approve") {
+  return {
+    sessionId: "ses_approval",
+    actionId: "act_approval",
+    sessionVersion: 5,
+    decision: decide,
+    now: now + 2,
+  };
+}
+
 describe("mission approval coordinator", () => {
   it("executes approved frozen arguments and appends matching function output", async () => {
     const { toolRunner, execute } = runner();
@@ -213,5 +242,150 @@ describe("mission approval coordinator", () => {
       result: { confirmationId: "confirm_1" },
     });
     expect(execute).not.toHaveBeenCalled();
+  });
+
+  it.each(["expired", "conflict"] as const)(
+    "returns an early %s claim result",
+    async (kind) => {
+      const { toolRunner } = runner();
+      const store = approvalStore({
+        claimPendingAction: vi.fn(async () => ({ kind })),
+      });
+
+      await expect(
+        new MissionApprovalCoordinator(store, toolRunner).decide(decision()),
+      ).resolves.toEqual({ kind });
+      expect(store.getSession).not.toHaveBeenCalled();
+    },
+  );
+
+  it("returns the first result for a duplicate completed rejection", async () => {
+    const { toolRunner } = runner();
+    const rejected = {
+      ...action("rejected"),
+      result: { approved: false, executed: false },
+    };
+    const store = approvalStore({
+      claimPendingAction: vi.fn(async () => ({
+        kind: "already_decided" as const,
+        action: rejected,
+      })),
+    });
+
+    await expect(
+      new MissionApprovalCoordinator(store, toolRunner).decide(decision("reject")),
+    ).resolves.toEqual({
+      kind: "already_completed",
+      result: { approved: false, executed: false },
+    });
+  });
+
+  it.each([
+    ["approve" as const, "rejected" as const],
+    ["reject" as const, "executed" as const],
+  ])("rejects a conflicting %s decision against %s", async (decide, status) => {
+    const { toolRunner } = runner();
+    const store = approvalStore({
+      claimPendingAction: vi.fn(async () => ({
+        kind: "already_decided" as const,
+        action: action(status),
+      })),
+    });
+
+    await expect(
+      new MissionApprovalCoordinator(store, toolRunner).decide(decision(decide)),
+    ).resolves.toEqual({ kind: "conflict" });
+  });
+
+  it.each([
+    null,
+    { ...session(), version: 6 },
+    { ...session(), pendingActionId: "act_other" },
+  ])("rejects a missing or stale approval session", async (storedSession) => {
+    const { toolRunner } = runner();
+    const store = approvalStore({
+      getSession: vi.fn(async () => storedSession),
+    });
+
+    await expect(
+      new MissionApprovalCoordinator(store, toolRunner).decide(decision()),
+    ).resolves.toEqual({ kind: "conflict" });
+    expect(store.completeApprovedAction).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    [
+      "already_rejected",
+      { kind: "already_completed", result: { approved: false, executed: false } },
+    ],
+    ["conflict", { kind: "conflict" }],
+  ] as const)("handles a %s rejection completion", async (kind, expected) => {
+    const { toolRunner } = runner();
+    const rejected = {
+      ...action("rejected"),
+      result: { approved: false, executed: false },
+    };
+    const store = approvalStore({
+      completeRejectedAction: vi.fn(async () =>
+        kind === "already_rejected"
+          ? { kind, action: rejected }
+          : { kind },
+      ),
+    });
+
+    await expect(
+      new MissionApprovalCoordinator(store, toolRunner).decide(decision("reject")),
+    ).resolves.toEqual(expected);
+  });
+
+  it.each([
+    [
+      "already_executed",
+      { kind: "already_completed", result: { confirmationId: "confirm_1" } },
+    ],
+    ["conflict", { kind: "conflict" }],
+  ] as const)("handles an %s approval completion", async (kind, expected) => {
+    const { toolRunner } = runner();
+    const executed = {
+      ...action("executed"),
+      result: { confirmationId: "confirm_1" },
+    };
+    const store = approvalStore({
+      completeApprovedAction: vi.fn(async () =>
+        kind === "already_executed"
+          ? { kind, action: executed }
+          : { kind },
+      ),
+    });
+
+    await expect(
+      new MissionApprovalCoordinator(store, toolRunner).decide(decision()),
+    ).resolves.toEqual(expected);
+  });
+
+  it("turns a changed approved action into a conflict", async () => {
+    const { toolRunner } = runner();
+    const store = approvalStore({
+      getSession: vi.fn(async () => ({
+        ...session(),
+        world: { subscription: { id: "sub_other", status: "active" } },
+      })),
+    });
+
+    await expect(
+      new MissionApprovalCoordinator(store, toolRunner).decide(decision()),
+    ).resolves.toEqual({ kind: "conflict" });
+  });
+
+  it("does not hide unexpected executor failures", async () => {
+    const failure = new Error("executor unavailable");
+    const { toolRunner } = runner(vi.fn(() => {
+      throw failure;
+    }));
+    const store = approvalStore();
+
+    await expect(
+      new MissionApprovalCoordinator(store, toolRunner).decide(decision()),
+    ).rejects.toBe(failure);
   });
 });

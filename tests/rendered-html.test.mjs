@@ -38,7 +38,7 @@ test("server-renders the On Your Behalf mission library", async () => {
   assert.match(html, /<title>On Your Behalf — Learn AI by doing it<\/title>/i);
   assert.match(html, /On Your Behalf/);
   assert.match(html, /Learn AI by doing it/);
-  assert.match(html, /20 practice missions/);
+  assert.match(html, /20 learn-by-doing missions/);
   assert.match(html, /Cancel a subscription/);
   assert.match(html, /Book a flight/);
   assert.doesNotMatch(html, /Capability map|What are you trying to get done today/);
