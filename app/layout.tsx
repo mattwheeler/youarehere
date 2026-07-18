@@ -1,27 +1,29 @@
 import type { Metadata } from "next";
 import "./globals.css";
 
+const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ??
+  "https://youarehere-buildweek.matt-wheeler70.chatgpt.site";
+
 export const metadata: Metadata = {
-  title: "You Are Here — See the question work",
+  metadataBase: new URL(siteUrl),
+  title: "On Your Behalf — Learn AI by doing it",
   description:
-    "A map-first AI workspace that makes goals, context, actions, and learning visible while you complete real work.",
+    "Twenty short, everyday missions that teach people how to stay in charge while AI helps.",
   openGraph: {
-    title: "You Are Here",
-    description: "See what AI can see. Learn what to do next.",
-    images: [
-      {
-        url: "/og.png",
-        width: 1200,
-        height: 630,
-        alt: "An illustrated journey map connecting a goal, context, action, and artifact.",
-      },
-    ],
+    title: "On Your Behalf",
+    description: "Learn AI by doing it—one everyday mission at a time.",
+    images: [{
+      url: "/og-v2.png",
+      width: 1731,
+      height: 909,
+      alt: "On Your Behalf — Learn AI by doing it",
+    }],
   },
   twitter: {
     card: "summary_large_image",
-    title: "You Are Here",
-    description: "See what AI can see. Learn what to do next.",
-    images: ["/og.png"],
+    title: "On Your Behalf",
+    description: "Twenty safe missions for learning how to use AI.",
+    images: ["/og-v2.png"],
   },
   icons: {
     icon: "/favicon.svg",

@@ -1,108 +1,73 @@
-# You Are Here
+# On Your Behalf
 
-> See what AI can see. Learn what to do next.
+> Learn AI by doing it.
 
-You Are Here is a map-first AI workspace for people who can get an answer from AI but cannot see where they are in the work. It turns a plain-language goal into a visible journey: goal, available context, next action, artifact, and what changed.
+On Your Behalf is an interactive AI-literacy prototype for OpenAI Build Week 2026. Instead of explaining AI with lessons and jargon, it gives people 20 short, familiar missions. The learner makes the important calls while an AI agent shows what would happen next.
 
-The first complete scenario helps someone prepare for a performance review. The experience intentionally begins broad, reveals the missing evidence, lets the person add work notes, and then updates the artifact so the value of context is visible rather than magical.
+## What learners practise
 
-## Why this is different
+Every mission uses four plain-language habits:
 
-- The map is the primary work surface, not decoration around a chat box.
-- Context is visible as `used`, `missing`, or `unnecessary`.
-- Every meaningful change creates a history entry tied to the user's question.
-- Live output uses a strict schema; demo output is explicitly labeled as a fixture.
-- The product explains what changed without exposing or inventing chain-of-thought.
+1. Choose what AI can see.
+2. Check where AI is going.
+3. Look before AI acts.
+4. Make sure the result is real.
+
+The library covers everyday life, work, money, and safety. Examples include cancelling a subscription, booking a flight, sending a client update, disputing a charge, and checking a suspicious email.
 
 ## Build Week track
 
-**Apps for your life** — a consumer learning and productivity experience for everyday AI use.
+**Education** — practical AI literacy for adults who are new to action-taking AI.
 
-## Stack
+## Product thesis
 
-- Next.js-compatible App Router on vinext/Vite
-- React 19 and TypeScript
-- OpenAI Responses API with GPT-5.6
-- Zod Structured Outputs
-- Vitest, Testing Library, and Node rendered-output tests
-- Cloudflare Workers-compatible production output
+People should not have to finish a course before they can use AI safely. AI should teach people how to use it while they are using it.
 
-## Run locally
+## How it works
 
-Requirements: Node.js 22.13 or newer and npm.
+- The flagship cancellation mission uses GPT-5.6 and six strict tools inside a fictional Streamly inbox and account.
+- D1 holds the authoritative mission state, while signed browser tokens carry only an opaque session reference.
+- Write arguments are frozen before the learner sees the approval card, then executed at most once after an exact approval.
+- Deterministic application logic—not model text—controls permissions, unsafe-route blocking, world changes, and completion proof.
+- The other 19 missions remain clearly labeled Practice experiences. If the live runtime is unhealthy, cancellation is also labeled Practice before it starts; a started live mission is never silently replaced with a fixture.
+
+## Local development
+
+Requires Node.js 22.13 or later.
 
 ```bash
 npm ci
-cp .env.example .env.local
 npm run dev
 ```
 
-Open <http://localhost:3000>.
+Open `http://localhost:3000`.
 
-For the deterministic, no-key demo shown in the hackathon walkthrough:
-
-```dotenv
-USE_DEMO_FIXTURES=true
-```
-
-For live GPT-5.6 output:
-
-```dotenv
-OPENAI_API_KEY=your_server_side_key
-USE_DEMO_FIXTURES=false
-```
-
-The API key is read only by the server route. Never prefix it with `NEXT_PUBLIC_` or commit an environment file.
-
-## Verify
+## Verification
 
 ```bash
 npm test
 npm run test:coverage
 npm run lint
 npm run build
-npm run test:rendered
 ```
 
-Coverage thresholds are enforced at 80% for statements, branches, functions, and lines.
+## Environment
 
-## Response contract
+```bash
+# Live Cancel Streamly mission (disabled by default)
+OPENAI_API_KEY=...
+MISSION_STATE_SECRET=use-a-strong-random-secret-at-least-32-characters
+LIVE_GOLDEN_MISSIONS=true
 
-`POST /api/journey` accepts a stage (`goal`, `context`, or `refine`), a goal, and optional context/refinement. It returns:
+# Legacy deterministic coach for the remaining Practice missions
+USE_DEMO_FIXTURES=true
 
-- a four-node journey map;
-- visible context-state decisions;
-- the current artifact and an honest limitation note;
-- a concise description of what changed;
-- capability guidance and safe product-level provenance.
+# Use the live coach for those Practice missions
+USE_DEMO_FIXTURES=false
+```
 
-Live requests use `gpt-5.6`, low reasoning effort, `store: false`, and Zod-backed Structured Outputs. If the server has neither an API key nor fixture mode enabled, it fails closed with a configuration error.
+The app uses `store: false`, strict function schemas, encrypted reasoning continuation, bounded tool results, and a four-hop ceiling. The OpenAI key, mission secret, authoritative world state, continuation state, and action hashes stay server-side.
 
-## Demo flow
+## Documentation
 
-1. Choose **Write** and ask: “Help me prepare for my performance review.”
-2. See a useful but intentionally broad first draft and the missing **Work notes** node.
-3. Add evidence such as: “Improved activation by 30% and mentored two teammates.”
-4. Watch the same map update: context becomes used, the artifact gains specifics, and the history records the change.
-5. Refine the artifact for a manager with a confident, evidence-led tone.
-
-This is paced as a real user journey, not a compressed 90-second feature reel.
-
-## Responsible behavior
-
-- The model is instructed not to invent personal evidence.
-- Context states distinguish missing information from unnecessary tools.
-- Demo fixtures are labeled in both the UI and API response.
-- Provider errors are converted to safe user-facing messages.
-- OpenAI response storage is disabled.
-- Hidden chain-of-thought is neither requested nor displayed.
-
-## Documentation and provenance
-
-Product decisions and the evolving submission narrative live in the Build Week Confluence space. Repository-specific provenance is recorded in [PROVENANCE.md](./PROVENANCE.md).
-
-Built with Codex and the OpenAI API for OpenAI Build Week 2026.
-
-## License
-
-MIT © 2026 Matt Wheeler. See [LICENSE](./LICENSE).
+The canonical build record is maintained in the OpenAI Build Week Confluence space. Submission-period authorship and asset lineage are recorded in [PROVENANCE.md](./PROVENANCE.md).

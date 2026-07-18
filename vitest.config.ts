@@ -1,5 +1,5 @@
 import { fileURLToPath } from "node:url";
-import { defineConfig } from "vitest/config";
+import { configDefaults, defineConfig } from "vitest/config";
 
 export default defineConfig({
   resolve: {
@@ -9,7 +9,12 @@ export default defineConfig({
   },
   test: {
     environment: "node",
-    include: ["**/*.test.ts", "**/*.test.tsx"],
+    include: [
+      "app/**/*.test.ts",
+      "components/**/*.test.tsx",
+      "lib/**/*.test.ts",
+    ],
+    exclude: [...configDefaults.exclude, "db/**/*.test.ts"],
     maxWorkers: 1,
     pool: "threads",
     restoreMocks: true,

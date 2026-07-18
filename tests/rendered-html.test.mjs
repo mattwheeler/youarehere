@@ -23,7 +23,7 @@ async function render() {
   );
 }
 
-test("server-renders the You Are Here orientation experience", async () => {
+test("server-renders the On Your Behalf mission library", async () => {
   const response = await render();
   assert.equal(response.status, 200);
   assert.match(response.headers.get("content-type") ?? "", /^text\/html\b/i);
@@ -35,15 +35,13 @@ test("server-renders the You Are Here orientation experience", async () => {
   assert.equal(response.headers.get("x-frame-options"), "DENY");
 
   const html = await response.text();
-  assert.match(html, /<title>You Are Here — See the question work<\/title>/i);
-  assert.match(html, /You Are Here/);
-  assert.match(html, /What are you trying to get done today\?/);
-  assert.match(html, /Write/);
-  assert.match(html, /Understand/);
-  assert.match(html, /Find/);
-  assert.match(html, /Compare/);
-  assert.match(html, /Decide/);
-  assert.match(html, /Create/);
+  assert.match(html, /<title>On Your Behalf — Learn AI by doing it<\/title>/i);
+  assert.match(html, /On Your Behalf/);
+  assert.match(html, /Learn AI by doing it/);
+  assert.match(html, /20 learn-by-doing missions/);
+  assert.match(html, /Cancel a subscription/);
+  assert.match(html, /Book a flight/);
+  assert.doesNotMatch(html, /Capability map|What are you trying to get done today/);
   assert.doesNotMatch(html, /Your site is taking shape|Building your site/);
 });
 
@@ -54,8 +52,8 @@ test("keeps the starter preview removed from the product shell", async () => {
     readFile(new URL("../package.json", import.meta.url), "utf8"),
   ]);
 
-  assert.match(page, /<JourneyExperience \/>/);
-  assert.match(layout, /You Are Here/);
+  assert.match(page, /<MissionExperience \/>/);
+  assert.match(layout, /On Your Behalf/);
   assert.doesNotMatch(layout, /next\/font\/google|Starter Project/);
   assert.doesNotMatch(packageJson, /react-loading-skeleton/);
   await Promise.all([
@@ -71,4 +69,28 @@ test("keeps the starter preview removed from the product shell", async () => {
       access(new URL("../app/_sites-preview/preview.css", import.meta.url)),
     ),
   ]);
+});
+
+test("packages the mission database migration for Sites", async () => {
+  const [migration, runtimeSchema] = await Promise.all([
+    readFile(
+      new URL(
+        "../dist/.openai/drizzle/0001_mission_runtime.sql",
+        import.meta.url,
+      ),
+      "utf8",
+    ),
+    readFile(new URL("../db/schema.ts", import.meta.url), "utf8"),
+  ]);
+
+  assert.match(migration, /CREATE TABLE IF NOT EXISTS mission_sessions/);
+  assert.match(migration, /CREATE TABLE IF NOT EXISTS mission_actions/);
+  assert.equal(
+    migration.match(/--> statement-breakpoint/g)?.length,
+    5,
+    "Drizzle must receive one complete SQLite statement at a time",
+  );
+  assert.doesNotMatch(migration, /CREATE TRIGGER/);
+  assert.match(runtimeSchema, /mission_actions_require_current_session/);
+  assert.match(runtimeSchema, /mission_actions_require_current_execution/);
 });
