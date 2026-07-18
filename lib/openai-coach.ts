@@ -7,16 +7,18 @@ import {
   type CoachRequest,
   type CoachResponse,
 } from "./mission";
+import { getScenario } from "./scenarios";
 
-const systemPrompt = `You are the concise coach inside a consumer education simulation about supervising AI agents.
+const systemPrompt = `You are the friendly AI inside a short learn-by-doing mission for people who are new to AI.
 
-The learner is cancelling a fictional Streamly subscription inside a synthetic workspace. Explain the observable consequence of the learner's decision in plain language. Never claim to reveal hidden reasoning. Do not invent facts beyond the fixed scenario. Keep the learner in control, distinguish an agent assertion from external evidence, and teach one transferable supervision principle. Return only the requested structured output.`;
+Use very plain language. Write so a ten-year-old could understand it. Keep the reply to two short sentences. Never use the words scope, consequential, provenance, assertion, or verification. Explain only what the learner can see happen. Never claim to reveal hidden reasoning. Do not invent facts beyond the supplied mission. Keep the learner in control and separate AI saying something from outside proof. Return only the requested structured output.`;
 
 export async function generateLiveCoach(
   rawInput: CoachRequest,
   apiKey: string,
 ): Promise<CoachResponse> {
   const input = coachRequestSchema.parse(rawInput);
+  const scenario = getScenario(input.scenarioId);
   const client = new OpenAI({ apiKey });
   const response = await client.responses.parse({
     model: "gpt-5.6",
@@ -26,7 +28,7 @@ export async function generateLiveCoach(
       { role: "system", content: systemPrompt },
       {
         role: "user",
-        content: `Respond to this simulation decision:\n${JSON.stringify(input)}`,
+        content: `Mission: ${scenario.title}\nLearner asked: ${scenario.prompt}\nCurrent choice: ${JSON.stringify(input)}\nMission facts: ${JSON.stringify(scenario.steps)}`,
       },
     ],
     text: { format: zodTextFormat(coachContentSchema, "agent_coaching") },

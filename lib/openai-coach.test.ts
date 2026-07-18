@@ -14,7 +14,11 @@ vi.mock("openai/helpers/zod", () => ({ zodTextFormat: formatMock }));
 
 import { generateLiveCoach } from "./openai-coach";
 
-const request = { stage: "scope" as const, decision: "sender-only" as const };
+const request = {
+  scenarioId: "cancel-streamly" as const,
+  stage: "share" as const,
+  decision: "focused-access" as const,
+};
 
 describe("generateLiveCoach", () => {
   beforeEach(() => {
@@ -34,6 +38,13 @@ describe("generateLiveCoach", () => {
         store: false,
         reasoning: { effort: "low" },
       }),
+    );
+    expect(parseMock.mock.calls[0]?.[0].input).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          content: expect.stringContaining("Cancel a subscription"),
+        }),
+      ]),
     );
     expect(formatMock).toHaveBeenCalled();
     expect(result.provenance).toEqual({

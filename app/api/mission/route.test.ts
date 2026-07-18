@@ -19,8 +19,14 @@ function request(body: unknown, clientIp?: string) {
 }
 
 describe("POST /api/mission", () => {
+  const validDecision = {
+    scenarioId: "cancel-streamly",
+    stage: "share",
+    decision: "focused-access",
+  } as const;
+
   it("rejects invalid mission decisions", async () => {
-    const response = await POST(request({ stage: "scope", decision: "everything" }));
+    const response = await POST(request({ ...validDecision, decision: "everything" }));
 
     expect(response.status).toBe(400);
     await expect(response.json()).resolves.toEqual(
@@ -30,9 +36,7 @@ describe("POST /api/mission", () => {
 
   it("returns a clearly labeled fixture in demo mode", async () => {
     vi.stubEnv("USE_DEMO_FIXTURES", "true");
-    const response = await POST(
-      request({ stage: "scope", decision: "sender-only" }),
-    );
+    const response = await POST(request(validDecision));
     const body = await response.json();
 
     expect(response.status).toBe(200);
@@ -45,17 +49,15 @@ describe("POST /api/mission", () => {
     vi.stubEnv("USE_DEMO_FIXTURES", "false");
     vi.stubEnv("OPENAI_API_KEY", "test-key");
     generateLiveCoachMock.mockResolvedValue({
-      ...createDemoCoach({ stage: "scope", decision: "sender-only" }),
+      ...createDemoCoach(validDecision),
       provenance: { live: true, model: "gpt-5.6", responseId: "resp_test" },
     });
 
-    const response = await POST(
-      request({ stage: "scope", decision: "sender-only" }),
-    );
+    const response = await POST(request(validDecision));
 
     expect(response.status).toBe(200);
     expect(generateLiveCoachMock).toHaveBeenCalledWith(
-      { stage: "scope", decision: "sender-only" },
+      validDecision,
       "test-key",
     );
   });
@@ -64,9 +66,7 @@ describe("POST /api/mission", () => {
     vi.stubEnv("USE_DEMO_FIXTURES", "false");
     vi.stubEnv("OPENAI_API_KEY", "");
 
-    const response = await POST(
-      request({ stage: "scope", decision: "sender-only" }),
-    );
+    const response = await POST(request(validDecision));
 
     expect(response.status).toBe(503);
   });
@@ -93,7 +93,7 @@ describe("POST /api/mission", () => {
       responses.push(
         await POST(
           request(
-            { stage: "scope", decision: "sender-only" },
+            validDecision,
             "203.0.113.77",
           ),
         ),

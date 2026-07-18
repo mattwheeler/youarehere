@@ -7,90 +7,92 @@ import {
   createMissionState,
 } from "./mission";
 
-describe("mission state machine", () => {
-  it("begins with the personal workspace locked", () => {
-    const state = createMissionState();
+describe("conversational mission state", () => {
+  it("starts with a simple sharing decision", () => {
+    const state = createMissionState("cancel-streamly");
 
-    expect(state.stage).toBe("scope");
-    expect(state.workspace.inbox).toBe("locked");
-    expect(state.score).toEqual({ scope: 0, inspect: 0, approve: 0, verify: 0 });
+    expect(state.scenarioId).toBe("cancel-streamly");
+    expect(state.stage).toBe("share");
+    expect(state.history).toEqual([]);
+    expect(state.score).toEqual({ share: 0, check: 0, approve: 0, prove: 0 });
   });
 
-  it("rewards the narrowest useful inbox permission", () => {
-    const state = advanceMission(createMissionState(), "sender-only");
+  it("rewards giving AI only the information it needs", () => {
+    const state = advanceMission(
+      createMissionState("cancel-streamly"),
+      "focused-access",
+    );
 
-    expect(state.stage).toBe("route");
-    expect(state.workspace.inbox).toBe("sender-only");
-    expect(state.score.scope).toBe(1);
-    expect(state.feedback?.body).toMatch(/3 unrelated messages stayed private/i);
+    expect(state.stage).toBe("check");
+    expect(state.score.share).toBe(1);
+    expect(state.feedback?.body).toMatch(/other messages stayed private/i);
   });
 
-  it("shows the cost of granting the whole inbox", () => {
-    const state = advanceMission(createMissionState(), "entire-inbox");
+  it("shows the privacy cost of sharing everything", () => {
+    const state = advanceMission(
+      createMissionState("cancel-streamly"),
+      "all-access",
+    );
 
-    expect(state.stage).toBe("route");
-    expect(state.workspace.inbox).toBe("entire-inbox");
-    expect(state.score.scope).toBe(0);
-    expect(state.feedback?.title).toBe("More access than the task needed");
+    expect(state.stage).toBe("check");
+    expect(state.score.share).toBe(0);
+    expect(state.feedback?.body).toMatch(/saw things it did not need/i);
   });
 
-  it("blocks an untrusted route and lets the learner retry", () => {
-    const scoped = advanceMission(createMissionState(), "sender-only");
-    const state = advanceMission(scoped, "forwarded-link");
+  it("keeps the learner on the check step after a suspicious destination", () => {
+    const shared = advanceMission(createMissionState("suspicious-email"), "focused-access");
+    const state = advanceMission(shared, "risky-route");
 
-    expect(state.stage).toBe("route");
-    expect(state.feedback?.kind).toBe("warning");
-    expect(state.feedback?.body).toMatch(/domain does not match Streamly/i);
+    expect(state.stage).toBe("check");
+    expect(state.feedback?.title).toBe("That does not match");
   });
 
-  it("pauses at approval after the official route is inspected", () => {
-    const scoped = advanceMission(createMissionState(), "sender-only");
-    const state = advanceMission(scoped, "official-site");
+  it("stops without changing anything when approval is denied", () => {
+    const shared = advanceMission(createMissionState("book-flight"), "focused-access");
+    const checked = advanceMission(shared, "trusted-route");
+    const state = advanceMission(checked, "stop-action");
 
-    expect(state.stage).toBe("approval");
-    expect(state.workspace.browser).toBe("reviewing-account");
-    expect(state.score.inspect).toBe(1);
+    expect(state.stage).toBe("approve");
+    expect(state.feedback?.body).toMatch(/nothing changed/i);
   });
 
-  it("stops the agent when cancellation is rejected", () => {
-    const scoped = advanceMission(createMissionState(), "sender-only");
-    const routed = advanceMission(scoped, "official-site");
-    const state = advanceMission(routed, "reject-cancellation");
-
-    expect(state.stage).toBe("approval");
-    expect(state.workspace.subscription).toBe("active");
-    expect(state.feedback?.title).toBe("The agent stopped");
-  });
-
-  it("requires independent evidence before completing", () => {
-    const scoped = advanceMission(createMissionState(), "sender-only");
-    const routed = advanceMission(scoped, "official-site");
-    const approved = advanceMission(routed, "approve-cancellation");
+  it("does not treat the AI saying done as proof", () => {
+    const shared = advanceMission(createMissionState("cancel-streamly"), "focused-access");
+    const checked = advanceMission(shared, "trusted-route");
+    const approved = advanceMission(checked, "approve-action");
     const asserted = advanceMission(approved, "agent-claim");
-    const completed = advanceMission(asserted, "confirmation-email");
+    const complete = advanceMission(asserted, "strong-proof");
 
-    expect(asserted.stage).toBe("verify");
-    expect(asserted.feedback?.body).toMatch(/assertion is not evidence/i);
-    expect(completed.stage).toBe("complete");
-    expect(completed.workspace.subscription).toBe("cancelled");
-    expect(completed.score).toEqual({ scope: 1, inspect: 1, approve: 1, verify: 1 });
+    expect(asserted.stage).toBe("prove");
+    expect(asserted.feedback?.body).toMatch(/AI repeating itself is not proof/i);
+    expect(complete.stage).toBe("complete");
+    expect(complete.score).toEqual({ share: 1, check: 1, approve: 1, prove: 1 });
   });
 });
 
 describe("coach contract", () => {
-  it("validates a mission decision and returns labeled fixture guidance", () => {
-    const request = coachRequestSchema.parse({
-      stage: "scope",
-      decision: "sender-only",
-    });
+  const request = {
+    scenarioId: "cancel-streamly" as const,
+    stage: "share" as const,
+    decision: "focused-access" as const,
+  };
+
+  it("requires the decision to belong to the current step", () => {
+    expect(() =>
+      coachRequestSchema.parse({ ...request, decision: "strong-proof" }),
+    ).toThrow(/not available/i);
+  });
+
+  it("returns short, labeled fixture guidance", () => {
     const response = createDemoCoach(request);
 
     expect(coachResponseSchema.parse(response)).toEqual(response);
+    expect(response.agentMessage).toMatch(/only/i);
+    expect(response.teachingNote.split(" ").length).toBeLessThan(22);
     expect(response.provenance).toEqual({
       live: false,
       model: "demo-fixture",
       responseId: null,
     });
-    expect(response.agentMessage).toMatch(/Streamly/i);
   });
 });

@@ -1,35 +1,37 @@
 import { z } from "zod";
+import { getScenario, scenarioIdSchema, type ScenarioId } from "./scenarios";
 
 export const missionStageSchema = z.enum([
-  "scope",
-  "route",
-  "approval",
-  "verify",
+  "share",
+  "check",
+  "approve",
+  "prove",
   "complete",
 ]);
 
 export const missionDecisionSchema = z.enum([
-  "sender-only",
-  "entire-inbox",
-  "paste-receipt",
-  "official-site",
-  "forwarded-link",
-  "approve-cancellation",
-  "reject-cancellation",
-  "confirmation-email",
-  "account-status",
+  "focused-access",
+  "paste-item",
+  "all-access",
+  "trusted-route",
+  "risky-route",
+  "approve-action",
+  "stop-action",
+  "strong-proof",
+  "screen-proof",
   "agent-claim",
 ]);
 
 const decisionsByStage = {
-  scope: ["sender-only", "entire-inbox", "paste-receipt"],
-  route: ["official-site", "forwarded-link"],
-  approval: ["approve-cancellation", "reject-cancellation"],
-  verify: ["confirmation-email", "account-status", "agent-claim"],
+  share: ["focused-access", "paste-item", "all-access"],
+  check: ["trusted-route", "risky-route"],
+  approve: ["approve-action", "stop-action"],
+  prove: ["strong-proof", "screen-proof", "agent-claim"],
 } as const;
 
 export const coachRequestSchema = z
   .object({
+    scenarioId: scenarioIdSchema,
     stage: missionStageSchema.exclude(["complete"]),
     decision: missionDecisionSchema,
   })
@@ -39,24 +41,24 @@ export const coachRequestSchema = z
       context.addIssue({
         code: "custom",
         path: ["decision"],
-        message: "That decision is not available at this point in the mission.",
+        message: "That choice is not available at this point in the mission.",
       });
     }
   });
 
 export const coachContentSchema = z.object({
-  agentMessage: z.string().min(1).max(500),
-  teachingNote: z.string().min(1).max(400),
+  agentMessage: z.string().min(1).max(400),
+  teachingNote: z.string().min(1).max(240),
   proposedAction: z.object({
     label: z.string().min(1).max(120),
     tool: z.enum([
-      "search_inbox",
-      "open_account_page",
-      "cancel_subscription",
-      "verify_confirmation",
+      "read_selected",
+      "open_verified",
+      "take_action",
+      "check_result",
       "stop",
     ]),
-    why: z.string().min(1).max(300),
+    why: z.string().min(1).max(240),
   }),
 });
 
@@ -74,38 +76,49 @@ export type CoachRequest = z.infer<typeof coachRequestSchema>;
 export type CoachContent = z.infer<typeof coachContentSchema>;
 export type CoachResponse = z.infer<typeof coachResponseSchema>;
 
-type MissionFeedback = {
+export type MissionFeedback = {
   kind: "success" | "warning" | "neutral";
   title: string;
   body: string;
 };
 
 export type MissionState = {
+  scenarioId: ScenarioId;
   stage: MissionStage;
-  workspace: {
-    inbox: "locked" | "sender-only" | "entire-inbox" | "receipt-only";
-    browser: "idle" | "reviewing-account" | "cancelled";
-    subscription: "active" | "cancelled-unverified" | "cancelled";
-  };
+  history: Array<{
+    stage: Exclude<MissionStage, "complete">;
+    decision: MissionDecision;
+  }>;
   score: {
-    scope: 0 | 1;
-    inspect: 0 | 1;
+    share: 0 | 1;
+    check: 0 | 1;
     approve: 0 | 1;
-    verify: 0 | 1;
+    prove: 0 | 1;
   };
   feedback: MissionFeedback | null;
 };
 
-export function createMissionState(): MissionState {
+export function createMissionState(scenarioId: ScenarioId = "cancel-streamly"): MissionState {
+  getScenario(scenarioId);
   return {
-    stage: "scope",
-    workspace: {
-      inbox: "locked",
-      browser: "idle",
-      subscription: "active",
-    },
-    score: { scope: 0, inspect: 0, approve: 0, verify: 0 },
+    scenarioId,
+    stage: "share",
+    history: [],
+    score: { share: 0, check: 0, approve: 0, prove: 0 },
     feedback: null,
+  };
+}
+
+function addTurn(
+  state: MissionState,
+  decision: MissionDecision,
+  updates: Partial<MissionState>,
+): MissionState {
+  if (state.stage === "complete") return state;
+  return {
+    ...state,
+    ...updates,
+    history: [...state.history, { stage: state.stage, decision }],
   };
 }
 
@@ -113,245 +126,233 @@ export function advanceMission(
   state: MissionState,
   decision: MissionDecision,
 ): MissionState {
-  if (state.stage === "scope") {
-    if (decision === "sender-only") {
-      return {
-        ...state,
-        stage: "route",
-        workspace: { ...state.workspace, inbox: "sender-only" },
-        score: { ...state.score, scope: 1 },
+  const scenario = getScenario(state.scenarioId);
+
+  if (state.stage === "share") {
+    if (decision === "focused-access" || decision === "paste-item") {
+      return addTurn(state, decision, {
+        stage: "check",
+        score: { ...state.score, share: 1 },
         feedback: {
           kind: "success",
-          title: "Enough access, without the rest",
-          body: "Streamly was found. 3 unrelated messages stayed private.",
+          title: "That is enough",
+          body:
+            decision === "focused-access"
+              ? `AI got ${scenario.steps.share.need}. Your other messages stayed private.`
+              : `AI got the one thing it needs. It did not get account access.`,
         },
-      };
+      });
     }
 
-    if (decision === "paste-receipt") {
-      return {
-        ...state,
-        stage: "route",
-        workspace: { ...state.workspace, inbox: "receipt-only" },
-        score: { ...state.score, scope: 1 },
-        feedback: {
-          kind: "success",
-          title: "You supplied exactly one item",
-          body: "The agent received the renewal notice without inbox access.",
-        },
-      };
-    }
-
-    if (decision === "entire-inbox") {
-      return {
-        ...state,
-        stage: "route",
-        workspace: { ...state.workspace, inbox: "entire-inbox" },
+    if (decision === "all-access") {
+      return addTurn(state, decision, {
+        stage: "check",
         feedback: {
           kind: "warning",
-          title: "More access than the task needed",
-          body: "The agent could now see payroll, health, and family messages even though only one sender mattered.",
+          title: "That was more than it needed",
+          body: `AI found the right thing, but it also saw things it did not need: ${scenario.steps.share.privateThings}.`,
         },
-      };
+      });
     }
   }
 
-  if (state.stage === "route") {
-    if (decision === "forwarded-link") {
-      return {
-        ...state,
+  if (state.stage === "check") {
+    if (decision === "risky-route") {
+      return addTurn(state, decision, {
         feedback: {
           kind: "warning",
-          title: "Stop and inspect the destination",
-          body: "The domain does not match Streamly. A familiar label is not proof that a link is safe.",
+          title: "That does not match",
+          body: `${scenario.steps.check.risky} looks related, but it is not the trusted place. Try the other choice.`,
         },
-      };
+      });
     }
 
-    if (decision === "official-site") {
-      return {
-        ...state,
-        stage: "approval",
-        workspace: { ...state.workspace, browser: "reviewing-account" },
-        score: { ...state.score, inspect: 1 },
+    if (decision === "trusted-route") {
+      return addTurn(state, decision, {
+        stage: "approve",
+        score: { ...state.score, check: 1 },
         feedback: {
           kind: "success",
-          title: "Route checked",
-          body: "The account domain matches the service and the renewal email.",
+          title: "Right place",
+          body: scenario.steps.check.clue,
         },
-      };
+      });
     }
   }
 
-  if (state.stage === "approval") {
-    if (decision === "reject-cancellation") {
-      return {
-        ...state,
+  if (state.stage === "approve") {
+    if (decision === "stop-action") {
+      return addTurn(state, decision, {
         feedback: {
           kind: "neutral",
-          title: "The agent stopped",
-          body: "Nothing changed. Human approval is a real control, not a courtesy notice.",
+          title: "AI stopped",
+          body: "You said no, so nothing changed. You are still in control.",
         },
-      };
+      });
     }
 
-    if (decision === "approve-cancellation") {
-      return {
-        ...state,
-        stage: "verify",
-        workspace: {
-          ...state.workspace,
-          browser: "cancelled",
-          subscription: "cancelled-unverified",
-        },
+    if (decision === "approve-action") {
+      return addTurn(state, decision, {
+        stage: "prove",
         score: { ...state.score, approve: 1 },
         feedback: {
           kind: "success",
-          title: "Approved and executed",
-          body: "The subscription changed only after you reviewed the account, price, and consequence.",
+          title: "Done—now check it",
+          body: scenario.steps.approve.result,
         },
-      };
+      });
     }
   }
 
-  if (state.stage === "verify") {
+  if (state.stage === "prove") {
     if (decision === "agent-claim") {
-      return {
-        ...state,
+      return addTurn(state, decision, {
         feedback: {
           kind: "warning",
-          title: "Keep looking",
-          body: "An assertion is not evidence. Check a source that changed outside the agent's own reply.",
+          title: "AI saying “done” is not enough",
+          body: "AI repeating itself is not proof. Look for something outside its own answer.",
         },
-      };
+      });
     }
 
-    if (decision === "account-status") {
-      return {
-        ...state,
+    if (decision === "screen-proof") {
+      return addTurn(state, decision, {
         feedback: {
           kind: "neutral",
-          title: "Good evidence; one stronger signal remains",
-          body: "The account page changed, but a durable confirmation with a reference is easier to prove later.",
+          title: "Good clue. There is better proof.",
+          body: `The screen helps, but ${scenario.steps.prove.strong.toLowerCase()} is easier to check later.`,
         },
-      };
+      });
     }
 
-    if (decision === "confirmation-email") {
-      return {
-        ...state,
+    if (decision === "strong-proof") {
+      return addTurn(state, decision, {
         stage: "complete",
-        workspace: { ...state.workspace, subscription: "cancelled" },
-        score: { ...state.score, verify: 1 },
+        score: { ...state.score, prove: 1 },
         feedback: {
           kind: "success",
-          title: "Verified independently",
-          body: "Confirmation ST-4821 records the cancellation and the final service date.",
+          title: "Now you know",
+          body: scenario.steps.prove.result,
         },
-      };
+      });
     }
   }
 
   return state;
 }
 
-const demoResponses: Record<MissionDecision, CoachContent> = {
-  "sender-only": {
-    agentMessage: "I found one Streamly renewal notice without opening anything from other senders.",
-    teachingNote: "Useful access is specific enough to finish the task and no broader.",
-    proposedAction: {
-      label: "Inspect the account destination",
-      tool: "search_inbox",
-      why: "The renewal notice contains the official account URL and renewal date.",
-    },
-  },
-  "entire-inbox": {
-    agentMessage: "I found the Streamly notice, but the permission also exposed unrelated personal messages.",
-    teachingNote: "A successful result can still use an unnecessarily risky permission.",
-    proposedAction: {
-      label: "Inspect the account destination",
-      tool: "search_inbox",
-      why: "Only the Streamly result is relevant to the mission.",
-    },
-  },
-  "paste-receipt": {
-    agentMessage: "The pasted receipt gives me the renewal date and account URL without inbox access.",
-    teachingNote: "Sometimes the safest connector is no connector at all.",
-    proposedAction: {
-      label: "Inspect the account destination",
-      tool: "search_inbox",
-      why: "The supplied receipt contains enough evidence to continue.",
-    },
-  },
-  "official-site": {
-    agentMessage: "The destination is account.streamly.example, matching the sender and billing notice.",
-    teachingNote: "Inspect the destination before letting an agent follow a consequential route.",
-    proposedAction: {
-      label: "Prepare cancellation for review",
-      tool: "open_account_page",
-      why: "The verified account page shows the subscription and its renewal terms.",
-    },
-  },
-  "forwarded-link": {
-    agentMessage: "This link says Streamly, but it opens streamly-cancel.example.net instead.",
-    teachingNote: "Labels can be copied. The actual destination is the stronger signal.",
-    proposedAction: {
-      label: "Stop before opening the link",
-      tool: "stop",
-      why: "The domain does not match the service account domain.",
-    },
-  },
-  "approve-cancellation": {
-    agentMessage: "Cancellation submitted. The account now says service ends July 18, 2026.",
-    teachingNote: "Approval should happen at the last responsible moment, with consequences visible.",
-    proposedAction: {
-      label: "Look for independent confirmation",
-      tool: "cancel_subscription",
-      why: "Execution is complete, but the outcome still needs verification.",
-    },
-  },
-  "reject-cancellation": {
-    agentMessage: "Stopped. I did not change the subscription.",
-    teachingNote: "Rejecting an approval must leave the external state unchanged.",
-    proposedAction: {
-      label: "Wait for your decision",
-      tool: "stop",
-      why: "The pending action requires explicit human approval.",
-    },
-  },
-  "confirmation-email": {
-    agentMessage: "Confirmation ST-4821 arrived from billing@streamly.example with the final service date.",
-    teachingNote: "Verification comes from changed external evidence, not the agent's confidence.",
-    proposedAction: {
-      label: "Complete the mission",
-      tool: "verify_confirmation",
-      why: "The durable confirmation matches the account state and action.",
-    },
-  },
-  "account-status": {
-    agentMessage: "The account page now says cancelled, but there is also a confirmation message available.",
-    teachingNote: "Prefer durable evidence you can return to after the session ends.",
-    proposedAction: {
-      label: "Check for a confirmation reference",
-      tool: "verify_confirmation",
-      why: "A reference number provides stronger evidence than transient page text.",
-    },
-  },
-  "agent-claim": {
-    agentMessage: "I believe the cancellation succeeded.",
-    teachingNote: "The agent repeating its own conclusion does not independently verify it.",
-    proposedAction: {
-      label: "Inspect an external confirmation",
-      tool: "verify_confirmation",
-      why: "A changed account or confirmation message can prove the outcome.",
-    },
-  },
+const lessons: Record<MissionDecision, string> = {
+  "focused-access": "You gave AI only what it needed. Less access means less can leak.",
+  "paste-item": "Sharing one item can be safer than connecting a whole account.",
+  "all-access": "More access means more risk—even when AI finishes the job.",
+  "trusted-route": "Names can be copied. Check the real address before AI opens it.",
+  "risky-route": "A familiar name is not proof. The real address matters.",
+  "approve-action": "You checked the details before AI made a real change.",
+  "stop-action": "When you say stop, a well-behaved AI should change nothing.",
+  "strong-proof": "Proof comes from what changed, not from AI sounding confident.",
+  "screen-proof": "A screen is a clue. A saved confirmation is stronger proof.",
+  "agent-claim": "AI saying it worked is a claim, not proof.",
 };
 
 export function createDemoCoach(rawInput: CoachRequest): CoachResponse {
   const input = coachRequestSchema.parse(rawInput);
+  const scenario = getScenario(input.scenarioId);
+
+  const contentByDecision: Record<MissionDecision, CoachContent> = {
+    "focused-access": {
+      agentMessage: `Got it. I’ll use only ${scenario.steps.share.need}.`,
+      teachingNote: lessons[input.decision],
+      proposedAction: {
+        label: `Find ${scenario.steps.share.need}`,
+        tool: "read_selected",
+        why: `Everything else stays closed.`,
+      },
+    },
+    "paste-item": {
+      agentMessage: `That works. I can continue from the one item you shared.`,
+      teachingNote: lessons[input.decision],
+      proposedAction: {
+        label: "Read the shared item",
+        tool: "read_selected",
+        why: "No account connection is needed.",
+      },
+    },
+    "all-access": {
+      agentMessage: `I found what I needed, but I could also see ${scenario.steps.share.privateThings}.`,
+      teachingNote: lessons[input.decision],
+      proposedAction: {
+        label: `Find ${scenario.steps.share.need}`,
+        tool: "read_selected",
+        why: "The task worked, but the permission was too broad.",
+      },
+    },
+    "trusted-route": {
+      agentMessage: `This matches: ${scenario.steps.check.trusted}.`,
+      teachingNote: lessons[input.decision],
+      proposedAction: {
+        label: `Open ${scenario.steps.check.trusted}`,
+        tool: "open_verified",
+        why: scenario.steps.check.clue,
+      },
+    },
+    "risky-route": {
+      agentMessage: `${scenario.steps.check.risky} does not match the trusted place. I stopped.`,
+      teachingNote: lessons[input.decision],
+      proposedAction: {
+        label: "Do not open it",
+        tool: "stop",
+        why: "The address does not match.",
+      },
+    },
+    "approve-action": {
+      agentMessage: scenario.steps.approve.result,
+      teachingNote: lessons[input.decision],
+      proposedAction: {
+        label: scenario.steps.approve.yes,
+        tool: "take_action",
+        why: scenario.steps.approve.consequence,
+      },
+    },
+    "stop-action": {
+      agentMessage: "Stopped. I did not change anything.",
+      teachingNote: lessons[input.decision],
+      proposedAction: {
+        label: "Wait for you",
+        tool: "stop",
+        why: "You did not approve the change.",
+      },
+    },
+    "strong-proof": {
+      agentMessage: `${scenario.steps.prove.strong} proves what happened.`,
+      teachingNote: lessons[input.decision],
+      proposedAction: {
+        label: `Check ${scenario.steps.prove.reference}`,
+        tool: "check_result",
+        why: scenario.steps.prove.result,
+      },
+    },
+    "screen-proof": {
+      agentMessage: `That screen is useful, but there is stronger proof available.`,
+      teachingNote: lessons[input.decision],
+      proposedAction: {
+        label: "Look for saved proof",
+        tool: "check_result",
+        why: `A saved reference is easier to check later.`,
+      },
+    },
+    "agent-claim": {
+      agentMessage: `I said it worked, but you should not have to take my word for it.`,
+      teachingNote: lessons[input.decision],
+      proposedAction: {
+        label: "Look for outside proof",
+        tool: "check_result",
+        why: "My own answer cannot prove my own work.",
+      },
+    },
+  };
+
   return coachResponseSchema.parse({
-    ...demoResponses[input.decision],
+    ...contentByDecision[input.decision],
     provenance: { live: false, model: "demo-fixture", responseId: null },
   });
 }

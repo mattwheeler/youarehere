@@ -2,7 +2,11 @@ import { describe, expect, it, vi } from "vitest";
 import { createDemoCoach } from "./mission";
 import { postCoach } from "./mission-client";
 
-const request = { stage: "scope" as const, decision: "sender-only" as const };
+const request = {
+  scenarioId: "cancel-streamly" as const,
+  stage: "share" as const,
+  decision: "focused-access" as const,
+};
 
 describe("postCoach", () => {
   it("posts a validated decision and returns validated guidance", async () => {

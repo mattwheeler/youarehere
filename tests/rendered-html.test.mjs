@@ -23,7 +23,7 @@ async function render() {
   );
 }
 
-test("server-renders the On Your Behalf mission briefing", async () => {
+test("server-renders the On Your Behalf mission library", async () => {
   const response = await render();
   assert.equal(response.status, 200);
   assert.match(response.headers.get("content-type") ?? "", /^text\/html\b/i);
@@ -35,11 +35,12 @@ test("server-renders the On Your Behalf mission briefing", async () => {
   assert.equal(response.headers.get("x-frame-options"), "DENY");
 
   const html = await response.text();
-  assert.match(html, /<title>On Your Behalf — Driver&#x27;s ed for AI agents<\/title>/i);
+  assert.match(html, /<title>On Your Behalf — Learn AI by doing it<\/title>/i);
   assert.match(html, /On Your Behalf/);
-  assert.match(html, /Before an AI acts on your behalf/);
-  assert.match(html, /Begin simulation/);
-  assert.match(html, /streaming trial renews tomorrow/i);
+  assert.match(html, /Learn AI by doing it/);
+  assert.match(html, /20 practice missions/);
+  assert.match(html, /Cancel a subscription/);
+  assert.match(html, /Book a flight/);
   assert.doesNotMatch(html, /Capability map|What are you trying to get done today/);
   assert.doesNotMatch(html, /Your site is taking shape|Building your site/);
 });

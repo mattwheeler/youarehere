@@ -10,120 +10,73 @@ import { MissionExperience } from "./MissionExperience";
 
 afterEach(cleanup);
 
+const fixtureClient = vi.fn<CoachClient>(async (request) => createDemoCoach(request));
+
 describe("MissionExperience", () => {
-  it("opens with a consequential mission instead of an AI taxonomy", () => {
-    render(<MissionExperience />);
+  it("opens with a plain-language catalog of 20 missions", () => {
+    render(<MissionExperience client={fixtureClient} />);
 
-    expect(
-      screen.getByRole("heading", {
-        name: "Before an AI acts on your behalf, learn how to stay in charge.",
-      }),
-    ).toBeVisible();
-    expect(screen.getByText(/streaming trial renews tomorrow/i)).toBeVisible();
-    expect(screen.queryByText("Capability map")).not.toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Learn AI by doing it." })).toBeVisible();
+    expect(screen.getByText("20 practice missions")).toBeVisible();
+    expect(screen.getAllByRole("button", { name: /start mission/i })).toHaveLength(20);
+    expect(screen.queryByText(/scope|inspect|consequential/i)).not.toBeInTheDocument();
   });
 
-  it("completes the mission through scope, inspect, approve, and verify", async () => {
+  it("filters the mission library without hiding the featured starting point", async () => {
     const user = userEvent.setup();
-    const client = vi.fn<CoachClient>(async (request) =>
-      createDemoCoach(request),
-    );
-    render(<MissionExperience client={client} />);
+    render(<MissionExperience client={fixtureClient} />);
 
-    await user.click(screen.getByRole("button", { name: "Begin simulation" }));
-    expect(screen.getByRole("heading", { name: "How much should it see?" })).toBeVisible();
+    await user.click(screen.getByRole("button", { name: "Work" }));
 
-    await user.click(
-      screen.getByRole("button", { name: /only messages from streamly/i }),
-    );
-    expect(
-      await screen.findByRole("heading", { name: "Which route do you trust?" }),
-    ).toBeVisible();
-    expect(screen.getByText(/3 unrelated messages stayed private/i)).toBeVisible();
-
-    await user.click(
-      screen.getByRole("button", { name: /open the official account page/i }),
-    );
-    expect(
-      await screen.findByRole("heading", { name: "This action changes the account." }),
-    ).toBeVisible();
-    expect(screen.getByText("account.streamly.example")).toBeVisible();
-
-    await user.click(screen.getByRole("button", { name: "Approve cancellation" }));
-    expect(
-      await screen.findByRole("heading", { name: "What proves it worked?" }),
-    ).toBeVisible();
-
-    await user.click(
-      screen.getByRole("button", { name: /confirmation email with reference/i }),
-    );
-    expect(
-      await screen.findByRole("heading", { name: "You stayed in charge." }),
-    ).toBeVisible();
-    expect(screen.getByText("4 of 4 supervision moves")).toBeVisible();
-    expect(client).toHaveBeenCalledTimes(4);
+    expect(screen.getAllByRole("button", { name: /start mission/i })).toHaveLength(5);
+    expect(screen.getByText("Send a client update")).toBeVisible();
+    expect(screen.queryByText("Return a purchase")).not.toBeInTheDocument();
   });
 
-  it("turns an unsafe choice into a retry instead of silently advancing", async () => {
+  it("plays the flagship mission as an AI conversation", async () => {
     const user = userEvent.setup();
-    const client = vi.fn<CoachClient>(async (request) =>
-      createDemoCoach(request),
-    );
-    render(<MissionExperience client={client} />);
+    render(<MissionExperience client={fixtureClient} />);
 
-    await user.click(screen.getByRole("button", { name: "Begin simulation" }));
-    await user.click(
-      screen.getByRole("button", { name: /only messages from streamly/i }),
-    );
-    await user.click(
-      screen.getByRole("button", { name: /use the forwarded cancel-now link/i }),
-    );
+    await user.click(screen.getByRole("button", { name: "Start mission: Cancel a subscription" }));
+    expect(screen.getByText("Cancel my Streamly trial before I get charged.")).toBeVisible();
+    expect(screen.getByRole("heading", { name: "What should AI be allowed to see?" })).toBeVisible();
 
-    expect(await screen.findByRole("alert")).toHaveTextContent(
-      "The domain does not match Streamly",
-    );
-    expect(
-      screen.getByRole("heading", { name: "Which route do you trust?" }),
-    ).toBeVisible();
+    await user.click(screen.getByRole("button", { name: "Only Streamly emails" }));
+    expect(await screen.findByText(/other messages stayed private/i)).toBeVisible();
+    expect(screen.getByText("AI used a tool")).toBeVisible();
+    expect(screen.getByRole("heading", { name: "Is this really the right place?" })).toBeVisible();
+
+    await user.click(screen.getByRole("button", { name: "account.streamly.example" }));
+    expect(await screen.findByRole("heading", { name: "Take one last look before AI does it" })).toBeVisible();
+
+    await user.click(screen.getByRole("button", { name: "Yes, cancel it" }));
+    expect(await screen.findByRole("heading", { name: "How do you know it worked?" })).toBeVisible();
+
+    await user.click(screen.getByRole("button", { name: /confirmation email.*ST-4821/i }));
+    expect(await screen.findByRole("heading", { name: "You made 4 smart moves." })).toBeVisible();
+    expect(screen.getByText(/That is how you stay in charge of AI/i)).toBeVisible();
+    expect(screen.queryByText("Choose an answer above to keep going")).not.toBeInTheDocument();
   });
 
-  it("does not accept the agent's assertion as verification", async () => {
+  it("lets every catalog mission begin with scenario-specific language", async () => {
     const user = userEvent.setup();
-    const client = vi.fn<CoachClient>(async (request) =>
-      createDemoCoach(request),
-    );
-    render(<MissionExperience client={client} />);
+    render(<MissionExperience client={fixtureClient} />);
 
-    await user.click(screen.getByRole("button", { name: "Begin simulation" }));
-    await user.click(screen.getByRole("button", { name: /only messages from streamly/i }));
-    await user.click(screen.getByRole("button", { name: /open the official account page/i }));
-    await user.click(screen.getByRole("button", { name: "Approve cancellation" }));
-    await user.click(screen.getByRole("button", { name: /the agent says it is done/i }));
+    await user.click(screen.getByRole("button", { name: "Start mission: Book a flight" }));
 
-    expect(await screen.findByRole("alert")).toHaveTextContent(
-      "An assertion is not evidence",
-    );
-    expect(screen.getByRole("heading", { name: "What proves it worked?" })).toBeVisible();
+    expect(screen.getByText(/Find me a flight to Denver/i)).toBeVisible();
+    expect(screen.getByRole("button", { name: "Only this trip’s dates and budget" })).toBeVisible();
   });
 
-  it("reports the privacy cost when a learner completes with broad access", async () => {
+  it("turns a suspicious link into a simple retry", async () => {
     const user = userEvent.setup();
-    const client = vi.fn<CoachClient>(async (request) =>
-      createDemoCoach(request),
-    );
-    render(<MissionExperience client={client} />);
+    render(<MissionExperience client={fixtureClient} />);
 
-    await user.click(screen.getByRole("button", { name: "Begin simulation" }));
-    await user.click(screen.getByRole("button", { name: "My entire inbox" }));
-    await user.click(screen.getByRole("button", { name: /open the official account page/i }));
-    await user.click(screen.getByRole("button", { name: "Approve cancellation" }));
-    await user.click(screen.getByRole("button", { name: /confirmation email with reference/i }));
+    await user.click(screen.getByRole("button", { name: "Start mission: Cancel a subscription" }));
+    await user.click(screen.getByRole("button", { name: "Only Streamly emails" }));
+    await user.click(screen.getByRole("button", { name: "streamly-cancel.example.net" }));
 
-    expect(
-      await screen.findByRole("heading", { name: "Mission complete. One risk remains." }),
-    ).toBeVisible();
-    expect(screen.getByText(/agent saw 3 unrelated messages/i)).toBeVisible();
-    expect(screen.getByText("3 of 4 supervision moves")).toBeVisible();
-    expect(screen.queryByText(/unrelated messages stayed private/i)).not.toBeInTheDocument();
+    expect(await screen.findByRole("alert")).toHaveTextContent("That does not match");
+    expect(screen.getByRole("heading", { name: "Is this really the right place?" })).toBeVisible();
   });
 });
